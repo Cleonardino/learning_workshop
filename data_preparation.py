@@ -14,9 +14,3 @@ columns = ["visibility",  "temperature",  "humidity",  "humidex",  "windchill", 
 for column in columns:
     train_data[column] = train_data[column].interpolate()
     train_data[column] = train_data[column].bfill()
-import matplotlib.pyplot as plt
-
-df["consumption"].plot(figsize=(14, 5))
-plt.title("Consommation dans le temps")
-plt.ylabel("kW / MW")
-plt.show()
