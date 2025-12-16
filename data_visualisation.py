@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
+from data_preparation import columns, train_data
 
 DATA_PATH = "./data/"
 OUTPUT_PATH = "./outputs"
@@ -9,28 +10,6 @@ Path(OUTPUT_PATH).mkdir(exist_ok=True)
 def time_step_to_minutes(time_step):
 	return int(pd.Timestamp(time_step).timestamp() / 60)
 
-# Load and preprocess data
-train_data = pd.read_csv(Path(DATA_PATH) / "X_train.csv")
-train_data = train_data.drop(columns="Unnamed: 9", errors="ignore")
-
-train_data["time_step"] = train_data["time_step"].apply(time_step_to_minutes)
-
-columns = [
-"visibility",
-"temperature",
-"humidity",
-"humidex",
-"windchill",
-"wind",
-"pressure",
-]
-
-for column in columns:
-	train_data[column] = train_data[column].interpolate()
-	train_data[column] = train_data[column].bfill()
-
-# Sort by time just in case
-train_data = train_data.sort_values("time_step")
 
 # Create visualization
 fig, axes = plt.subplots(len(columns), 1, figsize=(14, 18), sharex=True)
@@ -51,3 +30,31 @@ plt.savefig(output_file, dpi=300)
 plt.close()
 
 print(f"Visualization saved to {output_file}")
+
+
+
+# Create histograms
+fig, axes = plt.subplots(len(columns), 1, figsize=(12, 18))
+
+
+for ax, column in zip(axes, columns):
+	ax.hist(train_data[column].dropna(), bins=50)
+	ax.set_title(f"Distribution of {column}")
+	ax.set_ylabel("Frequency")
+	ax.grid(True, alpha=0.3)
+
+
+axes[-1].set_xlabel("Value")
+fig.suptitle("Training Data Feature Distributions", fontsize=16)
+
+
+plt.tight_layout(rect=[0, 0, 1, 0.96])
+
+
+# Save figure
+output_file = Path(OUTPUT_PATH) / "train_data_histograms.png"
+plt.savefig(output_file, dpi=300)
+plt.close()
+
+
+print(f"Histogram visualization saved to {output_file}")
