@@ -16,11 +16,13 @@ train_labels["time_step"] = train_labels["time_step"].apply(time_step_to_minutes
 max = 0
 count = 0
 for i in range(train_data.shape[0]):
-    if str(train_data["consumption"][i]) == str(train_data["consumption"][667]):
+    if np.isnan(train_data["consumption"][i]):
         count += 1
     else:
         if count > max:
             max = count
+            print(max)
+            print(f"ligne: {i}")
         count = 0
 if count > max:
     max = count
