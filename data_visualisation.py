@@ -31,18 +31,14 @@ plt.close()
 
 print(f"Visualization saved to {output_file}")
 
-
-
 # Create histograms
 fig, axes = plt.subplots(len(columns), 1, figsize=(12, 18))
-
 
 for ax, column in zip(axes, columns):
 	ax.hist(train_data[column].dropna(), bins=50)
 	ax.set_title(f"Distribution of {column}")
 	ax.set_ylabel("Frequency")
 	ax.grid(True, alpha=0.3)
-
 
 axes[-1].set_xlabel("Value")
 fig.suptitle("Training Data Feature Distributions", fontsize=16)
