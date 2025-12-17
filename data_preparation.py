@@ -5,7 +5,6 @@ DATA_PATH = "./data/"
 def time_step_to_minutes(time_step):
     return int(pd.Timestamp(time_step).timestamp()/60)
 
-
 train_data = pd.read_csv(DATA_PATH + "X_train.csv")
 train_data = train_data.drop(columns="Unnamed: 9")
 train_labels = pd.read_csv(DATA_PATH + "Y_train.csv")
