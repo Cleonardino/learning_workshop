@@ -4,7 +4,7 @@ from pathlib import Path
 from data_preparation import columns, train_data
 
 DATA_PATH = "./data/"
-OUTPUT_PATH = "./outputs"
+OUTPUT_PATH = "./visualisation_outputs"
 Path(OUTPUT_PATH).mkdir(exist_ok=True)
 
 def time_step_to_minutes(time_step):
@@ -58,3 +58,20 @@ plt.close()
 
 
 print(f"Histogram visualization saved to {output_file}")
+
+import seaborn as sns
+
+# Compute correlation matrix
+corr_matrix = train_data[columns].corr()
+
+# Create heatmap
+plt.figure(figsize=(10, 8))
+sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="coolwarm", cbar=True)
+plt.title("Feature Correlation Matrix", fontsize=16)
+
+# Save figure
+output_file = Path(OUTPUT_PATH) / "train_data_correlation_matrix.png"
+plt.savefig(output_file, dpi=300)
+plt.close()
+
+print(f"Correlation matrix saved to {output_file}")
