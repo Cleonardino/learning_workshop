@@ -22,7 +22,6 @@ for i in range(train_data.shape[0]):
             max = count
             print(max)
             print(f"ligne: {i}")
-        count = 0
 if count > max:
     max = count
 print(max)
