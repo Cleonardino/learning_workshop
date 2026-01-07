@@ -10,7 +10,6 @@ Path(OUTPUT_PATH).mkdir(exist_ok=True)
 def time_step_to_minutes(time_step):
 	return int(pd.Timestamp(time_step).timestamp() / 60)
 
-
 # Create visualization
 fig, axes = plt.subplots(len(columns), 1, figsize=(14, 18), sharex=True)
 
