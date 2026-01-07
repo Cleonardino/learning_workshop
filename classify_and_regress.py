@@ -7,27 +7,23 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from data_preparation import import_datasets, prepare_data, prepare_label
 
-# --------------------------------------------------
-# Load & prepare data
-# --------------------------------------------------
+x_train, y_train, x_test = import_datasets()
 
-X_train, Y_train, X_test = import_datasets()
-
-prepare_data(X_train)
-prepare_data(X_test)
-prepare_label(Y_train)
+prepare_data(x_train)
+prepare_data(x_test)
+prepare_label(y_train)
 
 # Align indexes
-X_train = X_train.sort_values("minutes_since_Epoch").reset_index(drop=True)
-Y_train = Y_train.sort_values("minutes_since_Epoch").reset_index(drop=True)
-X_test = X_test.sort_values("minutes_since_Epoch").reset_index(drop=True)
+x_train = x_train.sort_values("minutes_since_Epoch").reset_index(drop=True)
+y_train = y_train.sort_values("minutes_since_Epoch").reset_index(drop=True)
+x_test = x_test.sort_values("minutes_since_Epoch").reset_index(drop=True)
 
 # --------------------------------------------------
 # Identify device columns
 # --------------------------------------------------
 
 device_columns = [
-    col for col in Y_train.columns
+    col for col in y_train.columns
     if col not in ["time_step", "minutes_since_Epoch"]
 ]
 
@@ -42,7 +38,7 @@ for device in device_columns:
 # --------------------------------------------------
 
 feature_cols = [
-    col for col in X_train.columns
+    col for col in x_train.columns
     if col not in ["time_step"]
 ]
 
@@ -58,16 +54,16 @@ for device in device_columns:
     off_value = OFF_VALUES[device]
 
     # Binary target: ON / OFF
-    y_binary = (Y_train[device] > off_value).astype(int)
+    y_binary = (y_train[device] > off_value).astype(int)
 
     # -------- Classifier --------
     clf = RandomForestClassifier(
         n_estimators=200,
         max_depth=10,
-        random_state=42,
+        random_state=12,
         n_jobs=-1
     )
-    clf.fit(X_train[feature_cols], y_binary)
+    clf.fit(x_train[feature_cols], y_binary)
     classifiers[device] = clf
 
     # -------- Regressor (ON only) --------
@@ -79,18 +75,18 @@ for device in device_columns:
     ])
 
     reg.fit(
-        X_train.loc[on_mask, feature_cols],
-        Y_train.loc[on_mask, device]
+        x_train.loc[on_mask, feature_cols],
+        y_train.loc[on_mask, device]
     )
 
     regressors[device] = reg
 
 # --------------------------------------------------
-# Prediction on X_test
+# Prediction on x_test
 # --------------------------------------------------
 
 predictions = pd.DataFrame(
-    index=X_test.index,
+    index=x_test.index,
     columns=device_columns
 )
 
@@ -99,7 +95,7 @@ for device in device_columns:
     off_value = OFF_VALUES[device]
 
     # Predict ON / OFF
-    on_pred = classifiers[device].predict(X_test[feature_cols])
+    on_pred = classifiers[device].predict(x_test[feature_cols])
 
     # Default OFF value
     predictions[device] = off_value
@@ -109,14 +105,14 @@ for device in device_columns:
 
     if len(on_indices) > 0:
         predictions.loc[on_indices, device] = regressors[device].predict(
-            X_test.loc[on_indices, feature_cols]
+            x_test.loc[on_indices, feature_cols]
         )
 
 # --------------------------------------------------
 # Output
 # --------------------------------------------------
 
-predictions["time_step"] = X_test["time_step"]
+predictions["time_step"] = x_test["time_step"]
 predictions = predictions[["time_step"] + device_columns]
 
 predictions.to_csv("Y_test_pred.csv", index=False)

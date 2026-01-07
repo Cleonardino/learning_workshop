@@ -1,3 +1,4 @@
 visualisation_outputs
 .venv
 __pycache__
+__pycache__/data_preparation.cpython-310.pyc
