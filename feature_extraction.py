@@ -29,7 +29,7 @@ def is_public_holiday(time_step, public_holidays):
 def is_buisness_hour(time_step, public_holidays):
     if is_weekend(time_step) or is_public_holiday(time_step, public_holidays):
         return False
-    return pd.Timestamp(time_step).hour > 7 and pd.Timestamp(time_step).hour < 17
+    return pd.Timestamp(time_step).hour >= 8 and pd.Timestamp(time_step).hour <= 18
 
 def data_preparation(dataset):
     years = dataset["time_step"].apply(lambda time_step : pd.Timestamp(time_step).year).unique()
