@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 DATA_PATH = "./data/"
 from feature_extraction import add_features
+columns = ["visibility",  "temperature",  "humidity",  "humidex",  "windchill",  "wind",  "pressure"]
+
 
 def time_step_to_minutes(time_step):
     return int(pd.Timestamp(time_step).timestamp()/60)
@@ -25,7 +27,6 @@ def data_preparation(dataset_train, dataset_labels):
     dataset_train = dataset_train.drop(columns="Unnamed: 9")
     dataset_train["minutes_since_Epoch"] = dataset_train["time_step"].apply(time_step_to_minutes)
     dataset_labels["minutes_since_Epoch"] = dataset_labels["time_step"].apply(time_step_to_minutes)
-    columns = ["visibility",  "temperature",  "humidity",  "humidex",  "windchill",  "wind",  "pressure"]
     for column in columns:
         dataset_train[column] = dataset_train[column].interpolate()
         dataset_train[column] = dataset_train[column].bfill()
