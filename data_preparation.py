@@ -23,6 +23,10 @@ def nb_consecutive_nan(dataset : pd.DataFrame, column : str):
     return max
 
 def import_datasets():
+    """
+    read 3 csv and
+    return train_data, train_labels, test_data
+    """
     train_data = pd.read_csv(DATA_PATH + "X_train.csv")
     train_labels = pd.read_csv(DATA_PATH + "Y_train.csv")
     test_data = pd.read_csv(DATA_PATH + "X_test.csv")
@@ -37,6 +41,8 @@ def prepare_data(dataset):
         dataset[column] = dataset[column].bfill()
         dataset[column] = dataset[column].ffill()
     dataset = add_features(dataset)
+    return dataset
 
 def prepare_label(dataset_labels):
     dataset_labels["minutes_since_Epoch"] = dataset_labels["time_step"].apply(time_step_to_minutes)
+    return dataset_labels
