@@ -31,7 +31,7 @@ def is_buisness_hour(time_step, public_holidays):
         return False
     return pd.Timestamp(time_step).hour >= 8 and pd.Timestamp(time_step).hour <= 18
 
-def data_preparation(dataset):
+def add_features(dataset):
     years = dataset["time_step"].apply(lambda time_step : pd.Timestamp(time_step).year).unique()
     public_holidays = {}
     for year in years:
