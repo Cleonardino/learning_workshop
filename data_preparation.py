@@ -24,8 +24,9 @@ def nb_consecutive_nan(dataset : pd.DataFrame, column : str):
 def data_preparation(dataset_train, dataset_labels):
     dataset_train = dataset_train.drop(columns="Unnamed: 9")
     dataset_train["minutes_since_Epoch"] = dataset_train["time_step"].apply(time_step_to_minutes)
-    dataset_labels["time_step"] = dataset_labels["time_step"].apply(time_step_to_minutes)
+    dataset_labels["minutes_since_Epoch"] = dataset_labels["time_step"].apply(time_step_to_minutes)
     columns = ["visibility",  "temperature",  "humidity",  "humidex",  "windchill",  "wind",  "pressure"]
     for column in columns:
         dataset_train[column] = dataset_train[column].interpolate()
         dataset_train[column] = dataset_train[column].bfill()
+    dataset_train = add_features(dataset_train)
