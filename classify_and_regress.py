@@ -1,199 +1,177 @@
 import pandas as pd
 import numpy as np
-
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score, f1_score, mean_absolute_error, mean_squared_error
-from data_preparation import import_datasets, prepare_data, prepare_label
 
-x_train, y_train, x_test = import_datasets()
 
-x_train = prepare_data(x_train)
-x_test = prepare_data(x_test)
-y_train = prepare_label(y_train)
-
-# Align indexes
-x_train = x_train.sort_values("minutes_since_Epoch").reset_index(drop=True)
-y_train = y_train.sort_values("minutes_since_Epoch").reset_index(drop=True)
-x_test = x_test.sort_values("minutes_since_Epoch").reset_index(drop=True)
-
-# --------------------------------------------------
-# Train/Validation split (80/20)
-# --------------------------------------------------
-
-split_idx = int(len(x_train) * 0.8)
-
-x_tr = x_train.iloc[:split_idx].reset_index(drop=True)
-y_tr = y_train.iloc[:split_idx].reset_index(drop=True)
-
-x_val = x_train.iloc[split_idx:].reset_index(drop=True)
-y_val = y_train.iloc[split_idx:].reset_index(drop=True)
-
-print(f"Train size: {len(x_tr)}, Validation size: {len(x_val)}")
-
-# --------------------------------------------------
-# Identify device columns
-# --------------------------------------------------
-
-device_columns = [
-    col for col in y_train.columns
-    if col not in ["time_step", "minutes_since_Epoch"]
-]
-
-# OFF consumption rule
-OFF_VALUES = {device: 0 for device in device_columns}
-for device in device_columns:
-    if "tv" in device.lower():
-        OFF_VALUES[device] = 7
-
-# --------------------------------------------------
-# Feature set
-# --------------------------------------------------
-
-feature_cols = [
-    col for col in x_train.columns
-    if col not in ["time_step"]
-]
-
-# --------------------------------------------------
-# Train models
-# --------------------------------------------------
-
-classifiers = {}
-regressors = {}
-
-for device in device_columns:
-
-    off_value = OFF_VALUES[device]
-
-    # Binary target: ON / OFF
-    y_binary = (y_tr[device] > off_value).astype(int)
-
-    # -------- Classifier --------
-    clf = RandomForestClassifier(
-        n_estimators=200,
-        max_depth=10,
-        random_state=12,
-        n_jobs=-1
-    )
-    clf.fit(x_tr[feature_cols], y_binary)
-    classifiers[device] = clf
-
-    # -------- Regressor (ON only) --------
-    on_mask = y_binary == 1
-
-    reg = Pipeline([
-        ("scaler", StandardScaler()),
-        ("lr", LinearRegression())
-    ])
-
-    reg.fit(
-        x_tr.loc[on_mask, feature_cols],
-        y_tr.loc[on_mask, device]
-    )
-
-    regressors[device] = reg
-
-# --------------------------------------------------
-# Validation evaluation
-# --------------------------------------------------
-
-print("\n" + "="*60)
-print("VALIDATION PERFORMANCE")
-print("="*60)
-
-val_predictions = pd.DataFrame(
-    index=x_val.index,
-    columns=device_columns
-)
-
-for device in device_columns:
-
-    off_value = OFF_VALUES[device]
-
-    # Ground truth binary
-    y_val_binary = (y_val[device] > off_value).astype(int)
-
-    # Predict ON / OFF
-    on_pred = classifiers[device].predict(x_val[feature_cols])
-
-    # Classification metrics
-    acc = accuracy_score(y_val_binary, on_pred)
-    f1 = f1_score(y_val_binary, on_pred, zero_division=0)
-
-    # Default OFF value
-    val_predictions[device] = off_value
-
-    # Predict consumption where ON
-    on_indices = np.where(on_pred == 1)[0]
-
-    if len(on_indices) > 0:
-        val_predictions.loc[on_indices, device] = regressors[device].predict(
-            x_val.loc[on_indices, feature_cols]
+class ClassifyAndRegressModel:
+    """
+    Two-stage model for predicting device consumption:
+    1. Classification: Predict if device is ON or OFF
+    2. Regression: Predict consumption level when device is ON
+    """
+    
+    def __init__(self, device_columns, off_values=None, n_estimators=200, max_depth=10, random_state=12):
+        """
+        Initialize the model.
+        
+        Parameters:
+        -----------
+        device_columns : list
+            List of device column names to predict
+        off_values : dict, optional
+            Dictionary mapping device names to their OFF consumption values
+            Default is 0 for all devices except TVs (7)
+        n_estimators : int
+            Number of trees in RandomForest
+        max_depth : int
+            Maximum depth of RandomForest trees
+        random_state : int
+            Random state for reproducibility
+        """
+        self.device_columns = device_columns
+        self.n_estimators = n_estimators
+        self.max_depth = max_depth
+        self.random_state = random_state
+        
+        # Set default OFF values
+        if off_values is None:
+            self.off_values = {device: 0 for device in device_columns}
+            for device in device_columns:
+                if "tv" in device.lower():
+                    self.off_values[device] = 7
+        else:
+            self.off_values = off_values
+        
+        # Initialize model containers
+        self.classifiers = {}
+        self.regressors = {}
+        self.feature_cols = None
+        
+    def fit(self, x_train, y_train):
+        """
+        Train the models for all devices.
+        
+        Parameters:
+        -----------
+        x_train : pd.DataFrame
+            Training features
+        y_train : pd.DataFrame
+            Training labels (device consumptions)
+        """
+        # Identify feature columns (exclude time_step)
+        self.feature_cols = [
+            col for col in x_train.columns
+            if col not in ["time_step"]
+        ]
+        
+        print("Training models for each device...")
+        
+        for device in self.device_columns:
+            off_value = self.off_values[device]
+            
+            # Binary target: ON / OFF
+            y_binary = (y_train[device] > off_value).astype(int)
+            
+            # -------- Train Classifier --------
+            clf = RandomForestClassifier(
+                n_estimators=self.n_estimators,
+                max_depth=self.max_depth,
+                random_state=self.random_state,
+                n_jobs=-1
+            )
+            clf.fit(x_train[self.feature_cols], y_binary)
+            self.classifiers[device] = clf
+            
+            # -------- Train Regressor (ON samples only) --------
+            on_mask = y_binary == 1
+            
+            reg = Pipeline([
+                ("scaler", StandardScaler()),
+                ("lr", LinearRegression())
+            ])
+            
+            reg.fit(
+                x_train.loc[on_mask, self.feature_cols],
+                y_train.loc[on_mask, device]
+            )
+            
+            self.regressors[device] = reg
+            
+            print(f"  {device}: trained on {on_mask.sum()} ON samples out of {len(y_binary)}")
+        
+        print("Training completed!\n")
+        
+    def predict(self, x_test):
+        """
+        Predict device consumptions.
+        
+        Parameters:
+        -----------
+        x_test : pd.DataFrame
+            Test features
+            
+        Returns:
+        --------
+        pd.DataFrame
+            Predictions for all devices
+        """
+        if self.feature_cols is None:
+            raise ValueError("Model must be fitted before prediction. Call fit() first.")
+        
+        predictions = pd.DataFrame(
+            index=x_test.index,
+            columns=self.device_columns,
+            dtype=float
         )
-
-    # Regression metrics (only on actual ON samples)
-    actual_on_mask = y_val_binary == 1
-    if actual_on_mask.sum() > 0:
-        mae = mean_absolute_error(
-            y_val.loc[actual_on_mask, device],
-            val_predictions.loc[actual_on_mask, device]
+        
+        for device in self.device_columns:
+            off_value = self.off_values[device]
+            
+            # Predict ON / OFF
+            on_pred = self.classifiers[device].predict(x_test[self.feature_cols])
+            
+            # Default to OFF value
+            predictions[device] = float(off_value)
+            
+            # Predict consumption where ON
+            on_indices = np.where(on_pred == 1)[0]
+            
+            if len(on_indices) > 0:
+                predictions.loc[on_indices, device] = self.regressors[device].predict(
+                    x_test.loc[on_indices, self.feature_cols]
+                )
+        
+        return predictions
+    
+    def predict_probabilities(self, x_test):
+        """
+        Predict probabilities of devices being ON.
+        
+        Parameters:
+        -----------
+        x_test : pd.DataFrame
+            Test features
+            
+        Returns:
+        --------
+        pd.DataFrame
+            Probabilities for each device being ON
+        """
+        if self.feature_cols is None:
+            raise ValueError("Model must be fitted before prediction. Call fit() first.")
+        
+        probabilities = pd.DataFrame(
+            index=x_test.index,
+            columns=self.device_columns,
+            dtype=float
         )
-        rmse = np.sqrt(mean_squared_error(
-            y_val.loc[actual_on_mask, device],
-            val_predictions.loc[actual_on_mask, device]
-        ))
-    else:
-        mae = rmse = np.nan
-
-    print(f"\n{device}:")
-    print(f"  Classification - Accuracy: {acc:.4f}, F1: {f1:.4f}")
-    print(f"  Regression (ON only) - MAE: {mae:.2f}, RMSE: {rmse:.2f}")
-
-# Overall MAE across all devices and time steps
-overall_mae = mean_absolute_error(
-    y_val[device_columns].values.flatten(),
-    val_predictions[device_columns].values.flatten()
-)
-print(f"\nOverall Validation MAE: {overall_mae:.2f}")
-print("="*60 + "\n")
-
-# --------------------------------------------------
-# Prediction on x_test
-# --------------------------------------------------
-
-predictions = pd.DataFrame(
-    index=x_test.index,
-    columns=device_columns
-)
-
-for device in device_columns:
-
-    off_value = OFF_VALUES[device]
-
-    # Predict ON / OFF
-    on_pred = classifiers[device].predict(x_test[feature_cols])
-
-    # Default OFF value
-    predictions[device] = off_value
-
-    # Predict consumption where ON
-    on_indices = np.where(on_pred == 1)[0]
-
-    if len(on_indices) > 0:
-        predictions.loc[on_indices, device] = regressors[device].predict(
-            x_test.loc[on_indices, feature_cols]
-        )
-
-# --------------------------------------------------
-# Output
-# --------------------------------------------------
-
-predictions["time_step"] = x_test["time_step"]
-predictions = predictions[["time_step"] + device_columns]
-
-predictions.to_csv("Y_test_pred.csv", index=False)
-
-print("Prediction completed → Y_test_pred.csv")
+        
+        for device in self.device_columns:
+            # Get probability of class 1 (ON)
+            proba = self.classifiers[device].predict_proba(x_test[self.feature_cols])
+            probabilities[device] = proba[:, 1]
+        
+        return probabilities
