@@ -77,10 +77,11 @@ class ClassifyAndRegressModel:
             
             # -------- Train Classifier --------
             clf = RandomForestClassifier(
-                n_estimators=self.n_estimators,
-                max_depth=self.max_depth,
+                n_estimators=200,
+                max_depth=10,
                 random_state=self.random_state,
-                n_jobs=-1
+                n_jobs=-1,
+                class_weight='balanced'  # ADD THIS
             )
             clf.fit(x_train[self.feature_cols], y_binary)
             self.classifiers[device] = clf
