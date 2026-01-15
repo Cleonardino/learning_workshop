@@ -40,5 +40,5 @@ def add_features(dataset):
     dataset["isweekend"] = dataset["time_step"].apply(is_weekend)
     dataset["saison"] = dataset["time_step"].apply(get_season)
     dataset["ispublicholiday"] = dataset["time_step"].apply((lambda x : is_public_holiday(x, public_holidays)))
-    dataset["isbuisnesshour"] = dataset["time_step"].apply((lambda x : is_buisness_hour(x, public_holidays)))
+    dataset["isbusinesshour"] = dataset["time_step"].apply((lambda x : is_buisness_hour(x, public_holidays)))
     return dataset
