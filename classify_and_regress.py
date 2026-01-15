@@ -9,9 +9,9 @@ from data_preparation import import_datasets, prepare_data, prepare_label
 
 x_train, y_train, x_test = import_datasets()
 
-prepare_data(x_train)
-prepare_data(x_test)
-prepare_label(y_train)
+x_train = prepare_data(x_train)
+x_test = prepare_data(x_test)
+y_train = prepare_label(y_train)
 
 # Align indexes
 x_train = x_train.sort_values("minutes_since_Epoch").reset_index(drop=True)
