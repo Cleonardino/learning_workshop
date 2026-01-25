@@ -128,8 +128,6 @@ class ClassifyAndRegressModel:
             if col not in ["time_step"]
         ]
         
-        print("Training models for each device...")
-        
         for device in self.device_columns:
             off_value = self.off_values[device]
             
@@ -138,7 +136,6 @@ class ClassifyAndRegressModel:
             
             if is_fridge:
                 # Don't classify fridges, only regress
-                print(f"  {device}: always-on device, training regressor only")
                 self.classifiers[device] = None
                 
                 reg = LinearRegression()
@@ -173,8 +170,6 @@ class ClassifyAndRegressModel:
                 
                 self.regressors[device] = reg
                 
-                print(f"  {device}: trained on {on_mask.sum()} ON samples out of {len(y_binary)}")
-        
         print("Training completed!\n")
         
     def predict(self, x_test):
