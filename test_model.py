@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import accuracy_score, f1_score, mean_absolute_error, mean_squared_error, classification_report
+from sklearn.metrics import accuracy_score, f1_score, mean_absolute_error, mean_squared_error, r2_score, classification_report
 from data_preparation import import_datasets, prepare_data, prepare_label
 from classify_and_regress import ClassifyAndRegressModel
 
@@ -111,9 +111,6 @@ def evaluate_model(model, x_val, y_val, device_columns, off_values):
     dict
         Dictionary containing evaluation metrics
     """
-    print("\n" + "="*70)
-    print("VALIDATION PERFORMANCE")
-    print("="*70)
     
     # Get predictions
     val_predictions = model.predict(x_val)
@@ -144,8 +141,12 @@ def evaluate_model(model, x_val, y_val, device_columns, off_values):
                 y_val.loc[actual_on_mask, device],
                 val_predictions.loc[actual_on_mask, device]
             ))
+            r2 = r2_score(
+                y_val.loc[actual_on_mask, device],
+                val_predictions.loc[actual_on_mask, device]
+            )
         else:
-            mae = rmse = np.nan
+            mae = rmse = r2 = np.nan
         
         # Store metrics
         metrics[device] = {
@@ -153,20 +154,11 @@ def evaluate_model(model, x_val, y_val, device_columns, off_values):
             'f1_score': f1,
             'mae_on_samples': mae,
             'rmse_on_samples': rmse,
+            'r2_on_samples': r2,
             'num_actual_on': actual_on_mask.sum(),
             'num_predicted_on': pred_binary.sum()
         }
         
-        # Print device metrics
-        print(f"\n{device}:")
-        print(f"  Classification:")
-        print(f"    Accuracy: {acc:.4f}")
-        print(f"    F1 Score: {f1:.4f}")
-        print(f"    Actual ON samples: {actual_on_mask.sum()} / {len(y_val_binary)}")
-        print(f"    Predicted ON samples: {pred_binary.sum()} / {len(y_val_binary)}")
-        print(f"  Regression (ON samples only):")
-        print(f"    MAE: {mae:.2f}")
-        print(f"    RMSE: {rmse:.2f}")
     
     # Overall metrics
     y_val_flat = y_val[device_columns].values.flatten()
@@ -176,22 +168,51 @@ def evaluate_model(model, x_val, y_val, device_columns, off_values):
     mask = ~(np.isnan(y_val_flat) | np.isnan(pred_val_flat))
     overall_mae = mean_absolute_error(y_val_flat[mask], pred_val_flat[mask])
     overall_rmse = np.sqrt(mean_squared_error(y_val_flat[mask], pred_val_flat[mask]))
+    overall_r2 = r2_score(y_val_flat[mask], pred_val_flat[mask])
     
     metrics['overall'] = {
         'mae': overall_mae,
-        'rmse': overall_rmse
+        'rmse': overall_rmse,
+        'r2': overall_r2
     }
     
     print(f"\n" + "-"*70)
     print(f"OVERALL METRICS (all devices, all time steps):")
     print(f"  MAE: {overall_mae:.2f}")
     print(f"  RMSE: {overall_rmse:.2f}")
+    print(f"  R²: {overall_r2:.4f}")
     print("="*70 + "\n")
     
     # Generate plots
     plot_predictions(y_val, val_predictions, device_columns)
     
     return metrics
+
+def print_metrics_table(metrics, device_columns):
+    """
+    Print metrics in a formatted table.
+    
+    Parameters:
+    -----------
+    metrics : dict
+        Dictionary containing evaluation metrics
+    device_columns : list
+        List of device names
+    """
+    print("\n" + "="*70)
+    print("METRICS SUMMARY")
+    print("="*70)
+    print(f"{'Devices':<25} {'MAE':>12} {'RMSE':>12} {'R²':>12}")
+    print("-"*70)
+    
+    for device in device_columns:
+        mae = metrics[device]['mae_on_samples']
+        rmse = metrics[device]['rmse_on_samples']
+        r2 = metrics[device]['r2_on_samples']
+        
+        print(f"{device:<25} {mae:>12.3f} {rmse:>12.3f} {r2:>12.3f}")
+    
+    print("="*70 + "\n")
 
 def main():
     """
@@ -235,6 +256,8 @@ def main():
     print("\nTraining model...")
     model.fit(x_tr, y_tr)
     
+    print("Train results")
+    
     # Evaluate on validation set (now includes plotting)
     metrics = evaluate_model(
         model=model,
@@ -243,6 +266,23 @@ def main():
         device_columns=device_columns,
         off_values=model.off_values
     )
+    
+    # Print formatted metrics table
+    print_metrics_table(metrics, device_columns)
+    
+    print("Test results")
+    
+    # Evaluate on validation set (now includes plotting)
+    metrics = evaluate_model(
+        model=model,
+        x_val=x_val,
+        y_val=y_val,
+        device_columns=device_columns,
+        off_values=model.off_values
+    )
+    
+    # Print formatted metrics table
+    print_metrics_table(metrics, device_columns)
     
     # Generate predictions on test set
     print("Generating predictions on test set...")
