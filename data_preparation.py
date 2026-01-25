@@ -46,3 +46,9 @@ def prepare_data(dataset):
 def prepare_label(dataset_labels):
     dataset_labels["minutes_since_Epoch"] = dataset_labels["time_step"].apply(time_step_to_minutes)
     return dataset_labels
+
+def remove_nan_consumption(dataset):
+    dataset["consumption"] = dataset["consumption"].interpolate()
+    dataset["consumption"] = dataset["consumption"].bfill()
+    dataset["consumption"] = dataset["consumption"].ffill()
+    return dataset

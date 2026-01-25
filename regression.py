@@ -3,7 +3,7 @@
 
 import pandas as pd
 import numpy as np
-from data_preparation import import_datasets, prepare_data, prepare_label
+from data_preparation import import_datasets, prepare_data, prepare_label, remove_nan_consumption
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.multioutput import MultiOutputRegressor
@@ -18,7 +18,8 @@ train_data, train_labels, test_data = import_datasets()
 train_data = prepare_data(train_data)
 train_labels = prepare_label(train_labels)
 test_data = prepare_data(test_data)
-
+train_data = remove_nan_consumption(train_data)
+test_data = remove_nan_consumption(test_data)
 X_cols = [
     "minutes_since_Epoch",
     "consumption",

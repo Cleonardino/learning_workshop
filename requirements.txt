@@ -1,3 +1,6 @@
 scikit-learn
 pandas
 matplotlib
+torch
+jours_feries_france
+tqdm
