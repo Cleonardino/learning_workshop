@@ -53,24 +53,20 @@ def plot_predictions(y_val, val_predictions, device_columns, save_path="predicti
     
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 4 * n_rows))
     fig.suptitle('Predicted vs Actual Device Consumption Over Time', fontsize=16, y=1.00)
-    
-    # Flatten axes array for easier indexing
+
     if n_devices > 1:
         axes = axes.flatten()
     else:
         axes = [axes]
-    
-    # Time steps for x-axis
+
     time_steps = np.arange(len(y_val))
     
     for idx, device in enumerate(device_columns):
         ax = axes[idx]
-        
-        # Plot actual values
+
         ax.plot(time_steps, y_val[device].values, 
                 label='Actual', color='blue', alpha=0.7, linewidth=1.5)
-        
-        # Plot predicted values
+
         ax.plot(time_steps, val_predictions[device].values, 
                 label='Predicted', color='red', alpha=0.7, linewidth=1.5, linestyle='--')
         
@@ -79,8 +75,7 @@ def plot_predictions(y_val, val_predictions, device_columns, save_path="predicti
         ax.set_title(f'{device}')
         ax.legend(loc='upper right')
         ax.grid(True, alpha=0.3)
-    
-    # Hide any unused subplots
+
     for idx in range(n_devices, len(axes)):
         axes[idx].axis('off')
     
@@ -111,26 +106,21 @@ def evaluate_model(model, x_val, y_val, device_columns, off_values):
     dict
         Dictionary containing evaluation metrics
     """
-    
-    # Get predictions
+
     val_predictions = model.predict(x_val)
     
     metrics = {}
     
     for device in device_columns:
         off_value = off_values[device]
-        
-        # Ground truth binary
+
         y_val_binary = (y_val[device] > off_value).astype(int)
-        
-        # Predicted binary
+
         pred_binary = (val_predictions[device] > off_value).astype(int)
-        
-        # Classification metrics
+
         acc = accuracy_score(y_val_binary, pred_binary)
         f1 = f1_score(y_val_binary, pred_binary, zero_division=0)
-        
-        # Regression metrics (only on actual ON samples)
+
         actual_on_mask = y_val_binary == 1
         if actual_on_mask.sum() > 0:
             mae = mean_absolute_error(
@@ -147,8 +137,7 @@ def evaluate_model(model, x_val, y_val, device_columns, off_values):
             )
         else:
             mae = rmse = r2 = np.nan
-        
-        # Store metrics
+
         metrics[device] = {
             'accuracy': acc,
             'f1_score': f1,
@@ -158,13 +147,10 @@ def evaluate_model(model, x_val, y_val, device_columns, off_values):
             'num_actual_on': actual_on_mask.sum(),
             'num_predicted_on': pred_binary.sum()
         }
-        
-    
-    # Overall metrics
+
     y_val_flat = y_val[device_columns].values.flatten()
     pred_val_flat = val_predictions[device_columns].values.flatten()
-    
-    # Remove any NaN values
+
     mask = ~(np.isnan(y_val_flat) | np.isnan(pred_val_flat))
     overall_mae = mean_absolute_error(y_val_flat[mask], pred_val_flat[mask])
     overall_rmse = np.sqrt(mean_squared_error(y_val_flat[mask], pred_val_flat[mask]))
@@ -182,8 +168,7 @@ def evaluate_model(model, x_val, y_val, device_columns, off_values):
     print(f"  RMSE: {overall_rmse:.2f}")
     print(f"  R²: {overall_r2:.4f}")
     print("="*70 + "\n")
-    
-    # Generate plots
+
     plot_predictions(y_val, val_predictions, device_columns)
     
     return metrics
@@ -218,7 +203,6 @@ def main():
     """
     Main evaluation script.
     """
-    # Load and prepare data
     print("Loading datasets...")
     x_train, y_train, x_test = import_datasets()
     
@@ -226,25 +210,21 @@ def main():
     x_train = prepare_data(x_train)
     x_test = prepare_data(x_test)
     y_train = prepare_label(y_train)
-    
-    # Align indexes
+
     x_train = x_train.sort_values("minutes_since_Epoch").reset_index(drop=True)
     y_train = y_train.sort_values("minutes_since_Epoch").reset_index(drop=True)
     x_test = x_test.sort_values("minutes_since_Epoch").reset_index(drop=True)
-    
-    # Identify device columns
+
     device_columns = [
         col for col in y_train.columns 
         if col not in ["time_step", "minutes_since_Epoch"]
     ]
     print(f"Devices to predict: {device_columns}")
-    
-    # Train/Validation split
+
     print("\nSplitting train/validation...")
     x_tr, y_tr, x_val, y_val = train_val_split(x_train, y_train, val_ratio=0.2)
     print(f"Train size: {len(x_tr)}, Validation size: {len(x_val)}")
-    
-    # Initialize and train model
+
     print("\nInitializing model...")
     model = ClassifyAndRegressModel(
         device_columns=device_columns,
@@ -257,8 +237,7 @@ def main():
     model.fit(x_tr, y_tr)
     
     print("Train results")
-    
-    # Evaluate on validation set (now includes plotting)
+
     metrics = evaluate_model(
         model=model,
         x_val=x_val,
@@ -266,13 +245,11 @@ def main():
         device_columns=device_columns,
         off_values=model.off_values
     )
-    
-    # Print formatted metrics table
+
     print_metrics_table(metrics, device_columns)
     
     print("Test results")
-    
-    # Evaluate on validation set (now includes plotting)
+
     metrics = evaluate_model(
         model=model,
         x_val=x_val,
@@ -280,19 +257,15 @@ def main():
         device_columns=device_columns,
         off_values=model.off_values
     )
-    
-    # Print formatted metrics table
+
     print_metrics_table(metrics, device_columns)
-    
-    # Generate predictions on test set
+
     print("Generating predictions on test set...")
     predictions = model.predict(x_test)
-    
-    # Add time_step column and reorder
+
     predictions["time_step"] = x_test["time_step"]
     predictions = predictions[["time_step"] + device_columns]
-    
-    # Save predictions
+
     output_file = "Y_test_pred.csv"
     predictions.to_csv(output_file, index=False)
     print(f"Predictions saved to {output_file}")
