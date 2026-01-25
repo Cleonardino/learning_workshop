@@ -26,7 +26,6 @@ print(f"Count both null lines : {all_data_nan}")
 print(f"Count only label or data nan : {only_one_nan}")
 print(f"Count no nan lines : {clean_line_count}")
 
-
 # Create visualization
 fig, axes = plt.subplots(len(columns), 1, figsize=(14, 18), sharex=True)
 
@@ -62,12 +61,10 @@ fig.suptitle("Training Data Feature Distributions", fontsize=16)
 
 plt.tight_layout(rect=[0, 0, 1, 0.96])
 
-
 # Save figure
 output_file = Path(OUTPUT_PATH) / "train_data_histograms.png"
 plt.savefig(output_file, dpi=300)
 plt.close()
-
 
 print(f"Histogram visualization saved to {output_file}")
 
