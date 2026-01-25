@@ -1,9 +1,9 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, f1_score, mean_absolute_error, mean_squared_error, classification_report
 from data_preparation import import_datasets, prepare_data, prepare_label
 from classify_and_regress import ClassifyAndRegressModel
-
 
 def train_val_split(x_train, y_train, val_ratio=0.2):
     """
@@ -17,7 +17,7 @@ def train_val_split(x_train, y_train, val_ratio=0.2):
         Labels
     val_ratio : float
         Proportion of data to use for validation
-        
+    
     Returns:
     --------
     tuple
@@ -27,12 +27,67 @@ def train_val_split(x_train, y_train, val_ratio=0.2):
     
     x_tr = x_train.iloc[:split_idx].reset_index(drop=True)
     y_tr = y_train.iloc[:split_idx].reset_index(drop=True)
-    
     x_val = x_train.iloc[split_idx:].reset_index(drop=True)
     y_val = y_train.iloc[split_idx:].reset_index(drop=True)
     
     return x_tr, y_tr, x_val, y_val
 
+def plot_predictions(y_val, val_predictions, device_columns, save_path="predictions_plot.png"):
+    """
+    Plot predicted vs actual values for all devices over time.
+    
+    Parameters:
+    -----------
+    y_val : pd.DataFrame
+        Actual validation labels
+    val_predictions : pd.DataFrame
+        Predicted validation labels
+    device_columns : list
+        List of device names
+    save_path : str
+        Path to save the plot
+    """
+    n_devices = len(device_columns)
+    n_cols = 2
+    n_rows = (n_devices + n_cols - 1) // n_cols
+    
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 4 * n_rows))
+    fig.suptitle('Predicted vs Actual Device Consumption Over Time', fontsize=16, y=1.00)
+    
+    # Flatten axes array for easier indexing
+    if n_devices > 1:
+        axes = axes.flatten()
+    else:
+        axes = [axes]
+    
+    # Time steps for x-axis
+    time_steps = np.arange(len(y_val))
+    
+    for idx, device in enumerate(device_columns):
+        ax = axes[idx]
+        
+        # Plot actual values
+        ax.plot(time_steps, y_val[device].values, 
+                label='Actual', color='blue', alpha=0.7, linewidth=1.5)
+        
+        # Plot predicted values
+        ax.plot(time_steps, val_predictions[device].values, 
+                label='Predicted', color='red', alpha=0.7, linewidth=1.5, linestyle='--')
+        
+        ax.set_xlabel('Time Step')
+        ax.set_ylabel('Consumption')
+        ax.set_title(f'{device}')
+        ax.legend(loc='upper right')
+        ax.grid(True, alpha=0.3)
+    
+    # Hide any unused subplots
+    for idx in range(n_devices, len(axes)):
+        axes[idx].axis('off')
+    
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    print(f"\nPrediction plot saved to {save_path}")
+    plt.close()
 
 def evaluate_model(model, x_val, y_val, device_columns, off_values):
     """
@@ -50,7 +105,7 @@ def evaluate_model(model, x_val, y_val, device_columns, off_values):
         List of device names
     off_values : dict
         Dictionary of OFF values for each device
-        
+    
     Returns:
     --------
     dict
@@ -80,7 +135,6 @@ def evaluate_model(model, x_val, y_val, device_columns, off_values):
         
         # Regression metrics (only on actual ON samples)
         actual_on_mask = y_val_binary == 1
-        
         if actual_on_mask.sum() > 0:
             mae = mean_absolute_error(
                 y_val.loc[actual_on_mask, device],
@@ -111,7 +165,7 @@ def evaluate_model(model, x_val, y_val, device_columns, off_values):
         print(f"    Actual ON samples: {actual_on_mask.sum()} / {len(y_val_binary)}")
         print(f"    Predicted ON samples: {pred_binary.sum()} / {len(y_val_binary)}")
         print(f"  Regression (ON samples only):")
-        print(f"    MAE:  {mae:.2f}")
+        print(f"    MAE: {mae:.2f}")
         print(f"    RMSE: {rmse:.2f}")
     
     # Overall metrics
@@ -130,12 +184,14 @@ def evaluate_model(model, x_val, y_val, device_columns, off_values):
     
     print(f"\n" + "-"*70)
     print(f"OVERALL METRICS (all devices, all time steps):")
-    print(f"  MAE:  {overall_mae:.2f}")
+    print(f"  MAE: {overall_mae:.2f}")
     print(f"  RMSE: {overall_rmse:.2f}")
     print("="*70 + "\n")
     
+    # Generate plots
+    plot_predictions(y_val, val_predictions, device_columns)
+    
     return metrics
-
 
 def main():
     """
@@ -157,10 +213,9 @@ def main():
     
     # Identify device columns
     device_columns = [
-        col for col in y_train.columns
+        col for col in y_train.columns 
         if col not in ["time_step", "minutes_since_Epoch"]
     ]
-    
     print(f"Devices to predict: {device_columns}")
     
     # Train/Validation split
@@ -180,7 +235,7 @@ def main():
     print("\nTraining model...")
     model.fit(x_tr, y_tr)
     
-    # Evaluate on validation set
+    # Evaluate on validation set (now includes plotting)
     metrics = evaluate_model(
         model=model,
         x_val=x_val,
@@ -203,7 +258,6 @@ def main():
     print(f"Predictions saved to {output_file}")
     
     return model, metrics
-
 
 if __name__ == "__main__":
     model, metrics = main()
