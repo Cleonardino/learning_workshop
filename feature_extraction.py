@@ -29,9 +29,9 @@ def is_public_holiday(time_step, public_holidays):
 def is_buisness_hour(time_step, public_holidays):
     if is_weekend(time_step) or is_public_holiday(time_step, public_holidays):
         return False
-    return pd.Timestamp(time_step).hour > 7 and pd.Timestamp(time_step).hour < 17
+    return pd.Timestamp(time_step).hour >= 8 and pd.Timestamp(time_step).hour <= 18
 
-def data_preparation(dataset):
+def add_features(dataset):
     years = dataset["time_step"].apply(lambda time_step : pd.Timestamp(time_step).year).unique()
     public_holidays = {}
     for year in years:
@@ -40,5 +40,5 @@ def data_preparation(dataset):
     dataset["isweekend"] = dataset["time_step"].apply(is_weekend)
     dataset["saison"] = dataset["time_step"].apply(get_season)
     dataset["ispublicholiday"] = dataset["time_step"].apply((lambda x : is_public_holiday(x, public_holidays)))
-    dataset["isbuisnesshour"] = dataset["time_step"].apply((lambda x : is_buisness_hour(x, public_holidays)))
+    dataset["isbusinesshour"] = dataset["time_step"].apply((lambda x : is_buisness_hour(x, public_holidays)))
     return dataset
